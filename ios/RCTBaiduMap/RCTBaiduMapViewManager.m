@@ -7,6 +7,16 @@
 //
 
 #import "RCTBaiduMapViewManager.h"
+#import <BaiduMapAPI_Base/BMKBaseComponent.h>//引入base相关所有的头文件
+#import <BaiduMapAPI_Map/BMKMapComponent.h>//引入地图功能所有的头文件
+#import <BaiduMapAPI_Location/BMKLocationComponent.h>//引入定位功能所有的头文件
+
+@interface RCTBaiduMapViewManager()<BMKMapViewDelegate,BMKLocationServiceDelegate>
+{
+    BMKLocationService *_locService;
+}
+@property (strong, nonatomic) RCTBaiduMapView *mapView;
+@end
 
 @implementation RCTBaiduMapViewManager;
 
@@ -36,9 +46,55 @@ RCT_CUSTOM_VIEW_PROPERTY(center, CLLocationCoordinate2D, RCTBaiduMapView) {
 }
 
 - (UIView *)view {
-    RCTBaiduMapView* mapView = [[RCTBaiduMapView alloc] init];
-    mapView.delegate = self;
-    return mapView;
+//    RCTBaiduMapView* mapView = [[RCTBaiduMapView alloc] init];
+//    mapView.delegate = self;
+//    return mapView;
+    //初始化BMKLocationService
+    if (_locService == nil) {
+        _locService = [BMKLocationService new];
+        _locService.delegate = self;
+        //启动LocationService
+        [_locService startUserLocationService];
+
+        // 距离筛选器
+        _locService.distanceFilter = 10;
+
+        // 定位精度
+        _locService.desiredAccuracy = kCLLocationAccuracyNearestTenMeters;
+    }
+
+    if (_mapView == nil) {
+        _mapView = [RCTBaiduMapView new];
+        _mapView.delegate = self;
+        // 设置地图类型
+        [_mapView setMapType:BMKMapTypeStandard];
+        // 普通定位模式
+        _mapView.userTrackingMode = BMKUserTrackingModeFollow;
+        // 设置缩放比例 3-20
+        _mapView.zoomLevel = 15;  
+    }
+    return _mapView;
+}
+
+//实现相关delegate 处理位置信息更新
+//处理方向变更信息
+- (void)didUpdateUserHeading:(BMKUserLocation *)userLocation
+{
+    // 普通态
+    // 以下_mapView为BMKMapView对象
+    _mapView.showsUserLocation = YES;//显示定位图层
+    [_mapView updateLocationData:userLocation];
+}
+
+//处理位置坐标更新
+- (void)didUpdateBMKUserLocation:(BMKUserLocation *)userLocation
+{
+    NSLog(@"didUpdateUserLocation lat %f,long %f",userLocation.location.coordinate.latitude,userLocation.location.coordinate.longitude);
+    
+    // 普通态
+    // 以下_mapView为BMKMapView对象
+    _mapView.showsUserLocation = YES;//显示定位图层
+    [_mapView updateLocationData:userLocation];
 }
 
 -(void)mapview:(BMKMapView *)mapView

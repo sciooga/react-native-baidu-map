@@ -76,8 +76,6 @@
                 [_annotations removeObject:annotation];
             }
         }
-        
-        
     }
 }
 
