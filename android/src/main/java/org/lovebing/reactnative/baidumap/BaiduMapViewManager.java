@@ -18,6 +18,13 @@ import com.baidu.mapapi.SDKInitializer;
 import com.baidu.mapapi.map.MapViewLayoutParams;
 import com.baidu.mapapi.map.Marker;
 import com.baidu.mapapi.model.LatLng;
+
+import com.baidu.location.BDLocation;
+import com.baidu.location.BDLocationListener;
+import com.baidu.location.LocationClient;
+import com.baidu.location.LocationClientOption;
+import com.baidu.mapapi.map.MyLocationData;
+
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
@@ -34,7 +41,7 @@ import java.util.List;
 /**
  * Created by lovebing on 12/20/2015.
  */
-public class BaiduMapViewManager extends ViewGroupManager<MapView> {
+public class BaiduMapViewManager extends ViewGroupManager<MapView> implements BDLocationListener {
 
     private static final String REACT_CLASS = "RCTBaiduMapView";
 
@@ -44,6 +51,12 @@ public class BaiduMapViewManager extends ViewGroupManager<MapView> {
     private HashMap<String, Marker> mMarkerMap = new HashMap<>();
     private HashMap<String, List<Marker>> mMarkersMap = new HashMap<>();
     private TextView mMarkerText;
+    
+    private boolean isFristLocation = true;
+
+    public LocationClient mLocationClient = null;
+    public BaiduMap mBaiduMap;
+    public MapView mapView;
 
     public String getName() {
         return REACT_CLASS;
@@ -56,9 +69,48 @@ public class BaiduMapViewManager extends ViewGroupManager<MapView> {
 
     public MapView createViewInstance(ThemedReactContext context) {
         mReactContext = context;
-        MapView mapView =  new MapView(context);
+        mapView =  new MapView(context);
         setListeners(mapView);
+
+        mBaiduMap = mapView.getMap();
+        mBaiduMap.setMyLocationEnabled(true);
+        mLocationClient = new LocationClient(context.getApplicationContext());
+        mLocationClient.registerLocationListener(this);
+        initLocation();
+        mLocationClient.start();
         return mapView;
+    }
+
+    private void initLocation(){
+        LocationClientOption option = new LocationClientOption();
+        option.setLocationMode(LocationClientOption.LocationMode.Hight_Accuracy
+        );//可选，默认高精度，设置定位模式，高精度，低功耗，仅设备
+        option.setCoorType("bd09ll");//可选，默认gcj02，设置返回的定位结果坐标系
+        int span=1000;
+        option.setScanSpan(span);//可选，默认0，即仅定位一次，设置发起定位请求的间隔需要大于等于1000ms才是有效的
+        option.setIsNeedAddress(true);//可选，设置是否需要地址信息，默认不需要
+        option.setOpenGps(true);//可选，默认false,设置是否使用gps
+        mLocationClient.setLocOption(option);
+    }
+
+    @Override
+    public void onReceiveLocation(BDLocation location) {
+        // map view 销毁后不在处理新接收的位置
+        if (location == null || mapView == null)
+            return;
+        MyLocationData locData = new MyLocationData.Builder()
+                .accuracy(location.getRadius())
+                // 此处设置开发者获取到的方向信息，顺时针0-360
+                .direction(100).latitude(location.getLatitude())
+                .longitude(location.getLongitude()).build();
+        mBaiduMap.setMyLocationData(locData);
+
+        if (isFristLocation) {
+            isFristLocation = false;
+            LatLng ll = new LatLng(location.getLatitude(), location.getLongitude());
+            MapStatusUpdate u = MapStatusUpdateFactory.newLatLng(ll);
+            mBaiduMap.animateMapStatus(u);
+        }
     }
 
     @Override
